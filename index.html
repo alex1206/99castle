@@ -1,0 +1,975 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0B1020">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>九九城堡 · 像素英雄版</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' shape-rendering='crispEdges'%3E%3Crect width='16' height='16' fill='%230B1020'/%3E%3Crect x='4' y='2' width='8' height='8' fill='%23D8DDE3'/%3E%3Crect x='5' y='4' width='2' height='2' fill='%23FFE94D'/%3E%3Crect x='9' y='4' width='2' height='2' fill='%23FFE94D'/%3E%3Crect x='4' y='10' width='8' height='4' fill='%23E60012'/%3E%3C/svg%3E">
+<style>
+  :root{
+    --red:#E60012;--red-d:#8E0008;--red-l:#FF5A4E;
+    --blue:#1E5BC6;--blue-d:#123E8C;--blue-l:#5E9BFF;
+    --silver:#D8DDE3;--silver-d:#9AA6B6;--steel:#4A5A78;
+    --space:#0B1020;--space2:#121B33;--panel:#101A33;
+    --yellow:#FFE94D;--cyan:#8FF6FF;
+    --ink:#08101E;
+    --line:rgba(216,221,227,.16);
+    --txt:#EAF0F8;--dim:#A8B8D4;--dim2:#7488AC;
+    --pix:ui-monospace,SFMono-Regular,Menlo,Consolas,"Courier New",monospace;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%;margin:0}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    background:#060A14;color:var(--txt);overflow:hidden;
+    -webkit-user-select:none;user-select:none;
+  }
+  /* CRT 扫描线（极淡，压在全部内容之上） */
+  body::after{
+    content:"";position:fixed;inset:0;z-index:300;pointer-events:none;
+    background:repeating-linear-gradient(180deg,rgba(0,0,0,.1) 0 1px,rgba(0,0,0,0) 1px 3px);
+    opacity:.4;
+  }
+  button{font-family:inherit;color:inherit;border:0;background:none;padding:0;touch-action:manipulation;cursor:pointer}
+  button:disabled{cursor:default}
+  [v-cloak]{display:none}
+  svg.hero-art{display:block;image-rendering:pixelated;flex:0 0 auto}
+
+  #app{
+    --accent:var(--red);--accent-ink:var(--red-l);
+    height:100vh;height:100dvh;
+    display:flex;flex-direction:column;gap:5px;
+    padding:6px 8px calc(6px + env(safe-area-inset-bottom));
+    background-color:var(--space);
+    background-image:
+      radial-gradient(circle at 18% 10%,rgba(255,255,255,.45) 0 1px,transparent 1.7px),
+      radial-gradient(circle at 82% 18%,rgba(143,246,255,.4) 0 1px,transparent 1.7px),
+      radial-gradient(circle at 64% 6%,rgba(255,255,255,.28) 0 1px,transparent 1.7px),
+      radial-gradient(circle at 28% 32%,rgba(255,233,77,.28) 0 1px,transparent 1.7px),
+      linear-gradient(rgba(143,246,255,.05) 1px,transparent 1px),
+      linear-gradient(90deg,rgba(143,246,255,.05) 1px,transparent 1px),
+      linear-gradient(180deg,#18244B 0%,#0B1020 52%,#070B16 100%);
+    background-size:100% 100%,100% 100%,100% 100%,100% 100%,16px 16px,16px 16px,100% 100%;
+  }
+
+  /* ---------- 顶部 ---------- */
+  .hud{display:flex;align-items:center;gap:8px;flex:0 0 auto;height:28px}
+  .brand{
+    display:flex;align-items:center;gap:6px;
+    font-size:15px;font-weight:900;letter-spacing:1px;color:var(--yellow);
+    white-space:nowrap;text-shadow:2px 2px 0 #04070F;
+  }
+  .brand em{font-style:normal;font-size:9.5px;font-weight:700;color:var(--silver-d);margin-left:2px;letter-spacing:0;text-shadow:none}
+  .spacer{flex:1}
+  .chip{
+    font-size:11px;font-weight:800;white-space:nowrap;
+    padding:5px 9px;border-radius:2px;
+    background:#16213D;border:1px solid var(--steel);color:#C6D4EC;
+    box-shadow:2px 2px 0 #04070F;
+  }
+  .chip.on{background:var(--yellow);border-color:#FFF7B8;color:#0B1020;box-shadow:2px 2px 0 #8A6B00}
+  .chip:active{transform:translate(1px,1px);box-shadow:1px 1px 0 #04070F}
+
+  .turnbar{
+    display:flex;align-items:center;justify-content:space-between;
+    font-size:11px;color:var(--dim);padding:0 2px;flex:0 0 auto;
+  }
+  .turnbar b{color:var(--accent-ink);font-weight:900}
+  .turnbar .deck{color:var(--dim2);font-family:var(--pix);letter-spacing:.5px}
+
+  /* ---------- 棋盘 ---------- */
+  .board{
+    display:flex;flex-direction:column;min-height:0;position:relative;
+    padding:6px 5px 7px;border-radius:2px;
+  }
+  .board.opp{
+    --ch:clamp(38px,6.4vh,58px);--fs:calc(var(--ch) * .62);
+    flex:1 1 auto;background:#0C1428;
+    border:2px solid var(--silver);
+    box-shadow:0 0 0 2px #04070F,4px 4px 0 rgba(4,7,15,.9),inset 0 0 0 1px rgba(143,246,255,.1);
+  }
+  .board.mine{
+    --ch:clamp(24px,3.4vh,32px);--fs:calc(var(--ch) * .7);
+    flex:0 1 auto;max-height:38vh;background:#111C38;
+    border:2px solid var(--accent);
+    box-shadow:0 0 0 2px #04070F,3px 3px 0 rgba(4,7,15,.85);
+  }
+  .board-bg{
+    position:absolute;inset:0;overflow:hidden;pointer-events:none;
+    display:flex;flex-direction:column;align-items:center;justify-content:flex-end;
+    padding-bottom:10px;gap:2px;
+  }
+  .board-bg .bg-hero{opacity:.07}
+  .board-bg .tip{font-size:10.5px;letter-spacing:1.2px;color:rgba(216,221,227,.22)}
+  .bhead{
+    display:flex;align-items:center;justify-content:space-between;gap:6px;
+    margin-bottom:4px;position:relative;z-index:1;min-height:22px;
+  }
+  .hero-chip{
+    display:flex;align-items:center;gap:5px;
+    padding:1px 6px 1px 1px;background:#0A1327;
+    border:1px solid var(--steel);box-shadow:2px 2px 0 rgba(4,7,15,.85);
+  }
+  .hero-chip.enemy{border-color:var(--silver-d);background:#0E1730}
+  .hero-name{font-size:11.5px;font-weight:900;letter-spacing:.5px;color:#DCE6F7;white-space:nowrap}
+  .bstat{font-size:10.5px;color:var(--dim2);white-space:nowrap}
+  .bstat b{color:var(--yellow);font-family:var(--pix);font-size:12px}
+
+  .cols{display:flex;gap:5px;flex:1 1 auto;min-height:0;position:relative;z-index:1}
+  .col{
+    flex:1 1 0;min-width:0;display:flex;flex-direction:column;gap:4px;
+    padding:4px 2px;border-radius:2px;
+    background:#0E1932;border:1px solid rgba(216,221,227,.12);
+    box-shadow:inset 0 0 0 1px #070C18;
+  }
+  .colhead{
+    font-size:9px;text-align:center;color:var(--dim2);letter-spacing:.5px;
+    line-height:1;flex:0 0 auto;font-family:var(--pix);
+  }
+  .stack{
+    display:flex;flex-direction:column;gap:4px;flex:1 1 auto;min-height:0;
+    overflow-y:auto;overflow-x:hidden;padding:1px;
+    scrollbar-width:none;overscroll-behavior:contain;
+  }
+  .stack::-webkit-scrollbar{display:none}
+
+  .empty{
+    height:var(--ch);flex:0 0 auto;border-radius:2px;
+    border:1px dashed rgba(216,221,227,.18);
+    display:flex;align-items:center;justify-content:center;
+    font-size:9px;color:rgba(216,221,227,.25);
+  }
+
+  .slot{position:relative;height:var(--ch);flex:0 0 auto;perspective:520px;transform-origin:center}
+  .card3d{
+    position:relative;display:block;width:100%;height:100%;
+    transform-style:preserve-3d;
+    transition:transform .5s cubic-bezier(.32,.72,.24,1);
+  }
+  .card3d.up{transform:rotateY(180deg)}
+  .card3d:disabled{opacity:1}
+
+  .face{
+    position:absolute;inset:0;border-radius:2px;
+    display:flex;align-items:center;justify-content:center;
+    backface-visibility:hidden;-webkit-backface-visibility:hidden;
+    overflow:hidden;
+  }
+  .face.back{
+    background:linear-gradient(180deg,#1B2B52,#0E1830);
+    border:2px solid var(--silver);
+    box-shadow:inset 0 0 0 1px #070C18,3px 3px 0 rgba(4,7,15,.85);
+  }
+  .face.front{
+    transform:rotateY(180deg);
+    background:linear-gradient(180deg,#F8FAFC,#DCE3EC);
+    border:2px solid #8E9BAF;color:var(--ink);
+    box-shadow:inset 0 0 0 1px #FFFFFF,3px 3px 0 rgba(4,7,15,.8);
+  }
+  .hint{
+    font-family:var(--pix);font-size:var(--fs);font-weight:900;color:var(--yellow);
+    line-height:1;letter-spacing:-.5px;text-shadow:2px 2px 0 #04070F;
+  }
+  .hint.x{color:#FF6E5E}
+  .pc{
+    position:absolute;right:4px;bottom:3px;
+    font-size:8.5px;font-weight:700;line-height:1;font-family:var(--pix);
+    color:rgba(200,215,240,.66);
+  }
+  .num{
+    font-family:var(--pix);font-size:var(--fs);font-weight:900;
+    letter-spacing:-1px;line-height:1;color:var(--ink);
+    text-shadow:1px 0 0 var(--ink),-1px 0 0 var(--ink);
+  }
+  .tick{
+    position:absolute;top:1px;right:3px;font-size:9px;line-height:1;
+    color:#00895C;font-weight:900;
+  }
+  .flash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none}
+
+  .slot.sel .face{box-shadow:0 0 0 3px var(--yellow),4px 4px 0 rgba(4,7,15,.9)}
+  .slot.sel{filter:brightness(1.06)}
+  .slot.hit .flash{animation:hitFlash .26s steps(2,end) both}
+  @keyframes hitFlash{0%{opacity:0}20%{opacity:.95}60%{opacity:.4}100%{opacity:0}}
+
+  @keyframes shake{
+    0%,100%{transform:translateX(0)}
+    12%{transform:translateX(-5px)}
+    28%{transform:translateX(5px)}
+    44%{transform:translateX(-4px)}
+    60%{transform:translateX(4px)}
+    76%{transform:translateX(-2px)}
+    90%{transform:translateX(2px)}
+  }
+  .slot.shake{animation:shake .4s steps(1,end)}
+
+  /* 猜错：像素「无效」格挡标 */
+  .slot.blocked .face.back::before{
+    content:"无效";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+    font-size:calc(var(--fs) * .4);font-weight:900;letter-spacing:1px;color:#fff;
+    background:var(--red);border:1px solid #FFD2CE;padding:1px 3px;
+    box-shadow:2px 2px 0 #04070F;white-space:nowrap;
+    animation:blockIn .16s steps(2,end) both;
+  }
+  @keyframes blockIn{from{opacity:0;transform:translate(-50%,-50%) scale(.7)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+
+  /* ---------- 像素光波 ---------- */
+  .fx-layer{position:fixed;inset:0;z-index:120;pointer-events:none}
+  .fx-px{position:absolute;width:6px;height:6px;opacity:0;animation:fxIn .5s steps(1,end) both}
+  @keyframes fxIn{
+    0%{opacity:0;transform:scale(.3)}
+    25%{opacity:1;transform:scale(1)}
+    72%{opacity:1;transform:scale(1)}
+    100%{opacity:0;transform:scale(1.5)}
+  }
+
+  /* ---------- 候选数字面板 ---------- */
+  .sheet{
+    position:fixed;left:0;right:0;bottom:0;z-index:40;
+    background:#0D1730;
+    border-top:3px solid var(--yellow);
+    padding:11px 12px calc(12px + env(safe-area-inset-bottom));
+    box-shadow:0 -2px 0 #04070F,0 -10px 0 rgba(4,7,15,.35);
+    animation:sheetUp .2s steps(3,end);
+  }
+  @keyframes sheetUp{from{transform:translateY(28px);opacity:.5}to{transform:translateY(0);opacity:1}}
+  .sheet-top{display:flex;align-items:flex-start;gap:8px}
+  .sheet-title{font-size:13px;font-weight:800;color:#EAF0F8}
+  .sheet-title .hl{color:var(--yellow);font-size:16px;font-weight:900;font-family:var(--pix)}
+  .sheet-sub{font-size:11px;color:var(--dim2);margin-top:2px}
+  .closebtn{
+    width:30px;height:30px;flex:0 0 auto;border-radius:2px;
+    background:#16213D;border:1px solid var(--steel);
+    color:#C6D4EC;font-size:14px;line-height:1;box-shadow:2px 2px 0 #04070F;
+  }
+  .closebtn:active{transform:translate(1px,1px);box-shadow:1px 1px 0 #04070F}
+  .nums{display:grid;grid-template-columns:repeat(5,1fr);gap:7px;margin-top:9px}
+  .numbtn{
+    height:48px;border-radius:2px;font-size:20px;font-weight:900;font-family:var(--pix);
+    background:linear-gradient(180deg,#2B4A86,#1A2C55);
+    border:2px solid #7C97C8;color:#fff;
+    box-shadow:0 4px 0 #04070F,inset 0 0 0 1px rgba(255,255,255,.18);
+  }
+  .numbtn:active{transform:translateY(3px);box-shadow:0 1px 0 #04070F}
+  .numbtn:disabled{opacity:.5}
+
+  /* ---------- 遮罩 / 弹层 ---------- */
+  .mask{
+    position:fixed;inset:0;z-index:70;
+    display:flex;align-items:center;justify-content:center;padding:24px;
+    background-color:#070B16;
+    background-image:
+      linear-gradient(rgba(143,246,255,.045) 1px,transparent 1px),
+      linear-gradient(90deg,rgba(143,246,255,.045) 1px,transparent 1px),
+      radial-gradient(circle at 50% 30%,#1B2A52 0%,#0B1020 60%,#05080F 100%);
+    background-size:16px 16px,16px 16px,100% 100%;
+    text-align:center;animation:fadeIn .16s steps(2,end);
+  }
+  @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+  .maskinner{
+    max-width:330px;width:100%;padding:18px 16px 16px;
+    background:rgba(9,14,28,.94);border:2px solid var(--silver);
+    box-shadow:6px 6px 0 #04070F;
+  }
+  .hero-stage{position:relative;display:flex;align-items:flex-end;justify-content:center;margin:0 auto 8px;width:max-content}
+  .hero-stage .halo{
+    position:absolute;inset:-8px;pointer-events:none;
+    box-shadow:0 0 0 4px rgba(255,233,77,.22),0 0 0 10px rgba(255,233,77,.12),0 0 0 18px rgba(255,233,77,.06);
+    animation:halo .9s steps(2,end) infinite alternate;
+  }
+  .hero-stage .halo::before{
+    content:"";position:absolute;left:0;top:0;width:6px;height:6px;background:var(--yellow);
+    box-shadow:106px 0 0 var(--yellow),0 106px 0 var(--cyan),106px 106px 0 var(--cyan),
+               56px -10px 0 var(--yellow),-10px 56px 0 var(--cyan);
+    animation:spark .7s steps(2,end) infinite alternate;
+  }
+  @keyframes halo{from{opacity:.5}to{opacity:1}}
+  @keyframes spark{from{opacity:.4;transform:translateY(0)}to{opacity:1;transform:translateY(-2px)}}
+  .win-stage .hero-art{animation:cheer .7s steps(2,end) infinite alternate}
+  @keyframes cheer{from{transform:translateY(0)}to{transform:translateY(-4px)}}
+  .mask h2{font-size:17px;font-weight:800;color:#CFDAF0;margin:0 0 8px;letter-spacing:1px}
+  .who-big{font-size:34px;font-weight:900;letter-spacing:2px;margin:2px 0 10px;text-shadow:3px 3px 0 #04070F}
+  .masktip{font-size:12.5px;color:var(--dim2);margin:0 0 20px;line-height:1.6}
+  .masksub{font-size:11px;color:#5D6C8C;margin:16px 0 0;line-height:1.6}
+  .bigbtn{
+    width:100%;height:52px;border-radius:2px;font-size:16px;font-weight:900;color:#20180A;
+    background:linear-gradient(180deg,#FFE94D,#F2C21A);
+    border:2px solid #FFF7B8;
+    box-shadow:0 5px 0 #8A6B00;
+  }
+  .bigbtn:active{transform:translateY(3px);box-shadow:0 2px 0 #8A6B00}
+  .mask.win{background-color:#080C18;
+    background-image:
+      linear-gradient(rgba(255,233,77,.05) 1px,transparent 1px),
+      linear-gradient(90deg,rgba(255,233,77,.05) 1px,transparent 1px),
+      radial-gradient(circle at 50% 30%,#3A2F14 0%,#0A0C14 72%)}
+  .mask.win .maskinner{border-color:var(--yellow);box-shadow:6px 6px 0 #04070F,0 0 0 2px rgba(255,233,77,.12)}
+  .mask.win h2{font-size:26px;color:var(--yellow);font-weight:900;letter-spacing:2px;text-shadow:3px 3px 0 #04070F}
+
+  .rules{
+    position:fixed;inset:0;z-index:80;display:flex;flex-direction:column;
+    background:#070B15;animation:fadeIn .16s steps(2,end);
+  }
+  .rules::before{
+    content:"";position:absolute;inset:0;pointer-events:none;
+    background-image:
+      linear-gradient(rgba(143,246,255,.04) 1px,transparent 1px),
+      linear-gradient(90deg,rgba(143,246,255,.04) 1px,transparent 1px);
+    background-size:16px 16px;
+  }
+  .rules-inner{
+    max-width:560px;width:100%;margin:0 auto;flex:1;min-height:0;position:relative;
+    overflow-y:auto;padding:14px 16px calc(24px + env(safe-area-inset-bottom));
+    overscroll-behavior:contain;
+  }
+  .rules-head{display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:rgba(7,11,21,.97);padding:4px 0 10px;z-index:2}
+  .rules-head h3{margin:0;font-size:17px;color:var(--yellow);letter-spacing:1px;text-shadow:2px 2px 0 #04070F}
+  .rules h4{font-size:13.5px;color:var(--cyan);margin:16px 0 6px;letter-spacing:.5px}
+  .rules p,.rules li{font-size:12.5px;line-height:1.85;color:#C2CDE3;margin:0}
+  .rules ul{padding-left:18px;margin:4px 0}
+  .rules .tbl{
+    font-size:12px;line-height:1.9;color:#B9C5DD;
+    background:#0E1932;border:2px solid #2A3A5C;
+    border-radius:2px;padding:9px 11px;
+  }
+  .rules .tbl b{color:var(--yellow)}
+  .rules .tbl .x{color:#FF8A7A}
+  .rules .restart{
+    margin-top:18px;width:100%;height:44px;border-radius:2px;font-size:14px;font-weight:800;
+    background:#16213D;border:2px solid var(--steel);color:#DFE7F7;
+    box-shadow:0 4px 0 #04070F;
+  }
+  .rules .restart:active{transform:translateY(3px);box-shadow:0 1px 0 #04070F}
+
+  .toast{
+    position:fixed;left:50%;top:40%;transform:translate(-50%,-50%) scale(.92);
+    z-index:90;padding:10px 16px;border-radius:2px;
+    background:#0D1730;border:2px solid var(--yellow);
+    color:#fff;font-size:14px;font-weight:800;white-space:nowrap;
+    opacity:0;pointer-events:none;transition:opacity .14s steps(2,end),transform .14s steps(2,end);
+    box-shadow:4px 4px 0 #04070F;
+  }
+  .toast.show{opacity:1;transform:translate(-50%,-50%) scale(1)}
+  @media (max-height:600px){
+    .brand{font-size:14px}
+    .board.mine{max-height:34vh}
+  }
+</style>
+</head>
+<body>
+
+<div id="app" v-cloak :style="{'--accent':COLORS[g.current],'--accent-ink':INKS[g.current]}">
+
+  <header class="hud">
+    <div class="brand"><hero-art :px="16" variant="red"></hero-art>九九城堡<em>像素版</em></div>
+    <div class="spacer"></div>
+    <button class="chip" :class="{on:hintOn}" @click="hintOn=!hintOn">候选提示 {{ hintOn ? '开' : '关' }}</button>
+    <button class="chip" @click="showRules=true">规则</button>
+  </header>
+
+  <div class="turnbar">
+    <div>轮到 <b>{{ NAMES[g.current] }}</b><span v-if="g.phase==='play'"> · 点一张对手的牌</span><span v-else> · 等待开始</span></div>
+    <div class="deck">牌堆 {{ g.deck.length }}</div>
+  </div>
+
+  <!-- 敌方阵营（可点） -->
+  <section class="board opp">
+    <div class="board-bg" aria-hidden="true">
+      <hero-art class="bg-hero" :px="96" :variant="g.current===0?'blue':'red'"></hero-art>
+      <div class="tip">点一张牌 → 从候选里报数</div>
+    </div>
+    <div class="bhead">
+      <div class="hero-chip enemy">
+        <hero-art :px="24" pose="face" :variant="g.current===0?'blue':'red'"></hero-art>
+        <span class="hero-name">敌方 · {{ HERO_NAMES[1-g.current] }}</span>
+      </div>
+      <span class="bstat">还需猜中 <b>{{ oppLeft }}</b> 张</span>
+    </div>
+    <div class="cols">
+      <div class="col" v-for="(col,ci) in g.boards[1-g.current]" :key="'o'+ci">
+        <div class="colhead">{{ TITLES[ci] }}</div>
+        <div class="stack">
+          <div class="empty" v-if="!col.length">空</div>
+          <div class="slot" v-for="c in col" :key="epoch+'-o-'+c.id" :data-cid="c.id"
+               :class="{sel:selectedId===c.id,shake:shakeId===c.id,hit:hitId===c.id,blocked:blockId===c.id}">
+            <button class="card3d" :class="{up:c.revealed && revealHoldId!==c.id}"
+                    :disabled="busy||g.phase!=='play'||c.revealed" @click="selectCard(c)">
+              <div class="face back">
+                <span class="hint" :class="{x:Game.hintOf(c.n)==='X'}">{{ Game.hintOf(c.n) }}</span>
+                <span class="pc" v-if="hintOn">{{ countFor(c) }}种</span>
+                <span class="flash"></span>
+              </div>
+              <div class="face front"><span class="num">{{ c.n }}</span></div>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 我的阵营（不可点） -->
+  <section class="board mine">
+    <div class="bhead">
+      <div class="hero-chip mine">
+        <hero-art :px="24" pose="face" :variant="g.current===0?'red':'blue'"></hero-art>
+        <span class="hero-name">我方 · {{ HERO_NAMES[g.current] }}</span>
+      </div>
+      <span class="bstat">已被猜中 <b>{{ mineFound }}</b> 张</span>
+    </div>
+    <div class="cols">
+      <div class="col" v-for="(col,ci) in g.boards[g.current]" :key="'m'+ci">
+        <div class="colhead">{{ TITLES[ci] }}</div>
+        <div class="stack">
+          <div class="empty" v-if="!col.length">空</div>
+          <div class="slot" v-for="c in col" :key="epoch+'-m-'+c.id">
+            <button class="card3d up" disabled>
+              <div class="face back"></div>
+              <div class="face front">
+                <span class="num">{{ c.n }}</span>
+                <span class="tick" v-if="c.revealed">✓</span>
+              </div>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 候选数字 -->
+  <div class="sheet" v-if="selectedCard && g.phase==='play'">
+    <div class="sheet-top">
+      <div style="flex:1;min-width:0">
+        <div class="sheet-title">
+          第 {{ Game.colIndex(selectedCard.n)+1 }} 列（{{ TITLES[Game.colIndex(selectedCard.n)] }}）
+          · 背面提示 <span class="hl">{{ Game.hintOf(selectedCard.n) }}</span>
+        </div>
+        <div class="sheet-sub">共 {{ candidates.length }} 种可能 · 选出你要报的数字</div>
+      </div>
+      <button class="closebtn" @click="selectedId=null">✕</button>
+    </div>
+    <div class="nums">
+      <button class="numbtn" v-for="n in candidates" :key="n" :disabled="busy" @click="submit(n)">{{ n }}</button>
+    </div>
+  </div>
+
+  <!-- 交手机遮罩 -->
+  <div class="mask" v-if="g.phase==='handover'">
+    <div class="maskinner">
+      <div class="hero-stage">
+        <hero-art :px="64" :variant="g.current===0?'red':'blue'"></hero-art>
+      </div>
+      <h2>请把手机交给下一位英雄</h2>
+      <div class="who-big" :style="{color:INKS[g.current]}">{{ NAMES[g.current] }}</div>
+      <p class="masktip">另一位英雄请闭眼，不要偷看哦～</p>
+      <button class="bigbtn" @click="confirmHandover">我准备好了</button>
+      <p class="masksub">轮流猜出对手牌面的数字，先把对手全部猜完的人获胜</p>
+    </div>
+  </div>
+
+  <!-- 像素结算面板 -->
+  <div class="mask win" v-if="g.phase==='over'">
+    <div class="maskinner">
+      <div class="hero-stage win-stage">
+        <span class="halo"></span>
+        <hero-art :px="96" :variant="g.winner===0?'red':'blue'" pose="cheer"></hero-art>
+      </div>
+      <h2>{{ NAMES[g.winner] }} 获胜！</h2>
+      <p class="masktip">{{ NAMES[1-g.winner] }} 的 {{ winCount }} 张牌全部被猜中<br>本局共 {{ g.moves }} 次报数</p>
+      <button class="bigbtn" @click="restart">再来一局</button>
+    </div>
+  </div>
+
+  <!-- 规则 -->
+  <div class="rules" v-if="showRules">
+    <div class="rules-inner">
+      <div class="rules-head">
+        <h3>怎么玩</h3>
+        <button class="closebtn" @click="showRules=false">✕</button>
+      </div>
+
+      <h4>牌库与摆牌</h4>
+      <ul>
+        <li>1~39 各一张，共 39 张；每人发 6 张，剩下 27 张做牌堆。</li>
+        <li>按十位数分 4 列：第 1 列 1~9，第 2 列 10~19，第 3 列 20~29，第 4 列 30~39。</li>
+        <li>每列从小到大自上而下排，某段没有牌就是空槽。</li>
+        <li>自己的牌正面朝上；对手的牌只露出背面的提示。</li>
+      </ul>
+
+      <h4>回合</h4>
+      <ul>
+        <li>轮到你：点一张对手的背面牌，从候选数字里点出它的正面数字。</li>
+        <li>猜中：这张牌翻开，双方都看到正面。</li>
+        <li>猜错：对手从牌堆补一张，插进对应列的正确位置（牌堆空了就不补）。</li>
+        <li>然后换手。谁先猜完对手当前所有牌，谁获胜。</li>
+      </ul>
+
+      <h4>背面提示是怎么来的</h4>
+      <p>正面数字如果能写成两个 1~9 的整数相乘（九九表里的数），背面就印其中一个因数；凑不出来就印 X。</p>
+      <div class="tbl" style="margin-top:8px">
+        <div><b>第 1 列固定</b>：1 / 2 / 3 / 5 / 7 → 1；4 / 8 → 2；6 / 9 → 3</div>
+        <div style="margin-top:6px"><b>第 2 列</b>：10 · 14 · 16 → 2；12 → 4；15 → 3；18 → 6；<span class="x">11 · 13 · 17 · 19 → X</span></div>
+        <div><b>第 3 列</b>：20 · 25 → 5；21 · 24 → 3；27 → 9；28 → 7；<span class="x">22 · 23 · 26 · 29 → X</span></div>
+        <div><b>第 4 列</b>：30 · 35 → 5；32 · 36 → 4；<span class="x">31 · 33 · 34 · 37 · 38 · 39 → X</span></div>
+      </div>
+
+      <h4>候选提示</h4>
+      <p>打开后，每张背面牌上会显示「还剩几种可能」。这个数字是实时算出来的：同列 + 同提示 + 还没被任何人看到的数字。</p>
+
+      <button class="restart" @click="restart">重新开始一局</button>
+    </div>
+  </div>
+
+  <div class="toast" :class="{show:!!toastMsg}">{{ toastMsg }}</div>
+</div>
+
+<script src="https://unpkg.com/vue@3.4.38/dist/vue.global.prod.js"></script>
+<script>window.Vue||document.write('<script src="https://cdn.jsdelivr.net/npm/vue@3.4.38/dist/vue.global.prod.js"><\/script>');</script>
+<script>
+/* ===================== GAME LOGIC START ===================== */
+/* 纯逻辑：发牌 / 按列归位 / 候选枚举 / 判中 / 补牌插入 / 胜负判定 */
+const Game = (function () {
+  const CONFIG = {
+    deckMax: 39,            // 牌库 1~39
+    handSize: 6,            // 每人 6 张
+    colRanges: [[1, 9], [10, 19], [20, 29], [30, 39]],
+    colTitles: ['1–9', '10–19', '20–29', '30–39'],
+    // 第 1 列固定背面提示表
+    hintCol1: { 1: 1, 2: 1, 3: 1, 4: 2, 5: 1, 6: 3, 7: 1, 8: 2, 9: 3 },
+    // 第 2~4 列默认背面提示表（'X' = 没有可用口诀因数）。改这里即可微调。
+    hintTable: {
+      10: 2, 11: 'X', 12: 4, 13: 'X', 14: 2, 15: 3, 16: 2, 17: 'X', 18: 6, 19: 'X',
+      20: 5, 21: 3, 22: 'X', 23: 'X', 24: 3, 25: 5, 26: 'X', 27: 9, 28: 7, 29: 'X',
+      30: 5, 31: 'X', 32: 4, 33: 'X', 34: 'X', 35: 5, 36: 4, 37: 'X', 38: 'X', 39: 'X'
+    }
+  };
+
+  let uid = 0;
+
+  function range(a, b) { const r = []; for (let i = a; i <= b; i++) r.push(i); return r; }
+  function shuffle(arr, rand) {
+    const rnd = rand || Math.random;
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(rnd() * (i + 1));
+      const t = arr[i]; arr[i] = arr[j]; arr[j] = t;
+    }
+    return arr;
+  }
+
+  // 列号：1~9 → 第 1 列；10~19 → 第 2 列；20~29 → 第 3 列；30~39 → 第 4 列
+  function colIndex(n) { return n <= 9 ? 0 : Math.floor(n / 10); }
+
+  function hintOf(n) {
+    if (n <= 9) return CONFIG.hintCol1[n];
+    const h = CONFIG.hintTable[n];
+    return h === undefined ? 'X' : h;
+  }
+
+  function emptyBoard() { return [[], [], [], []]; }
+  function createCard(n) { return { id: ++uid, n: n, revealed: false }; }
+
+  // 按列归位：插入到该列从小到大的正确位置，返回插入下标
+  function insertCard(board, card) {
+    const col = board[colIndex(card.n)];
+    let i = 0;
+    while (i < col.length && col[i].n < card.n) i++;
+    col.splice(i, 0, card);
+    return i;
+  }
+
+  function newGame(rand) {
+    const deck = shuffle(range(1, CONFIG.deckMax), rand);
+    const boards = [emptyBoard(), emptyBoard()];
+    for (let i = 0; i < CONFIG.handSize; i++) {
+      insertCard(boards[0], createCard(deck.pop()));
+      insertCard(boards[1], createCard(deck.pop()));
+    }
+    return { current: 0, phase: 'handover', winner: null, boards: boards, deck: deck, moves: 0 };
+  }
+
+  // 当前视角「已知」的数字：已翻明的 + 自己手上的
+  function knownNumbers(g, viewer) {
+    const s = new Set();
+    g.boards.forEach(function (board, owner) {
+      board.forEach(function (col) {
+        col.forEach(function (c) { if (c.revealed || owner === viewer) s.add(c.n); });
+      });
+    });
+    return s;
+  }
+
+  // 候选枚举：同列 + 同背面提示 + 未被看到
+  function candidatesWithKnown(known, card) {
+    const r = CONFIG.colRanges[colIndex(card.n)];
+    const h = hintOf(card.n);
+    const out = [];
+    for (let n = r[0]; n <= r[1]; n++) {
+      if (hintOf(n) === h && !known.has(n)) out.push(n);
+    }
+    return out;
+  }
+  function candidatesFor(g, viewer, card) {
+    return candidatesWithKnown(knownNumbers(g, viewer), card);
+  }
+
+  function boardCards(board) {
+    const out = [];
+    board.forEach(function (col) { col.forEach(function (c) { out.push(c); }); });
+    return out;
+  }
+  function unrevealedCount(board) {
+    return boardCards(board).filter(function (c) { return !c.revealed; }).length;
+  }
+  function revealedCount(board) {
+    return boardCards(board).filter(function (c) { return c.revealed; }).length;
+  }
+  function allRevealed(board) { return unrevealedCount(board) === 0; }
+
+  // 判中 + 补牌 + 胜负
+  function guess(g, viewer, card, n) {
+    const res = { correct: card.n === n, win: false, drawn: null, insertIndex: -1, deckEmpty: false };
+    if (res.correct) {
+      card.revealed = true;
+      res.win = allRevealed(g.boards[1 - viewer]);
+    } else if (g.deck.length > 0) {
+      const c = createCard(g.deck.pop());
+      res.insertIndex = insertCard(g.boards[1 - viewer], c);
+      res.drawn = c;
+    } else {
+      res.deckEmpty = true;
+    }
+    g.moves++;
+    return res;
+  }
+
+  return {
+    CONFIG: CONFIG, colIndex: colIndex, hintOf: hintOf, range: range, shuffle: shuffle,
+    newGame: newGame, createCard: createCard, emptyBoard: emptyBoard, insertCard: insertCard,
+    knownNumbers: knownNumbers, candidatesWithKnown: candidatesWithKnown, candidatesFor: candidatesFor,
+    boardCards: boardCards, unrevealedCount: unrevealedCount, revealedCount: revealedCount,
+    allRevealed: allRevealed, guess: guess
+  };
+})();
+/* ====================== GAME LOGIC END ====================== */
+
+(function () {
+  const { createApp, reactive, ref, computed, nextTick } = Vue;
+
+  const NAMES = ['玩家 1', '玩家 2'];
+  const HERO_NAMES = ['赤焰', '苍蓝'];
+  const COLORS = ['#E60012', '#1E5BC6'];
+  const INKS = ['#FF5A4E', '#5E9BFF'];
+  const TITLES = Game.CONFIG.colTitles;
+  const sleep = function (ms) { return new Promise(function (r) { setTimeout(r, ms); }); };
+
+  /* ---------- 16×16 像素英雄（原创，仅用配色致敬经典特摄气质） ---------- */
+  const HERO_BASE = { k: '#26324F', s: '#D8DDE3', d: '#9AA6B6', y: '#FFE94D', c: '#8FF6FF' };
+  const HERO_PAL = {
+    red:  { a: '#E60012', b: '#8E0008' },
+    blue: { a: '#1E5BC6', b: '#123E8C' }
+  };
+  const HERO_IDLE = [
+    '.......aa.......',
+    '.....kkkkkk.....',
+    '....kssccssk....',
+    '....kyyssyyk....',
+    '....kyyssyyk....',
+    '....ksddddsk....',
+    '.....kkkkkk.....',
+    '.....kaaaak.....',
+    '..ksskaaaakssk..',
+    '..ksskaaaakssk..',
+    '..ksskaccakssk..',
+    '..ksskaaaakssk..',
+    '..ksskaaaakssk..',
+    '..kkkaaaaaakkk..',
+    '....kaa..aak....',
+    '....kbb..bbk....'
+  ];
+  const HERO_CHEER = [
+    '.......aa.......',
+    '.....kkkkkk.....',
+    '.kkkkssccssk....',
+    '.ksskyyssyyk....',
+    '.ksskyyssyyk....',
+    '.kkkkssssssk....',
+    '.kss.kkkkkk.....',
+    '.kss.kaaaak.....',
+    '..ksskaaaakssk..',
+    '..ksskaaaakssk..',
+    '..ksskaccakssk..',
+    '..ksskaaaakssk..',
+    '..ksskaaaakssk..',
+    '..kkkaaaaaakkk..',
+    '....kaa..aak....',
+    '....kbb..bbk....'
+  ];
+  // 头像特写（大头盔，用于名字条）
+  const HERO_FACE = [
+    '................',
+    '....kkkkkkkk....',
+    '...kssssssssk...',
+    '...kssccccssk...',
+    '...kyyysssyyk...',
+    '...kyyysssyyk...',
+    '...kssssssssk...',
+    '...ksddddddsk...',
+    '....kkkkkkkk....',
+    '...kkaaaaaakk...',
+    '..ksskaaaakssk..',
+    '..ksskaaaakssk..',
+    '..ksskaccakssk..',
+    '..ksskaaaakssk..',
+    '..kkkaaaaaakkk..',
+    '....kkkkkkkk....'
+  ];
+  const spriteCache = {};
+  function pixelRects(rows, pal) {
+    const out = [];
+    for (let y = 0; y < rows.length; y++) {
+      const row = (rows[y] + '................').slice(0, 16);
+      let x = 0;
+      while (x < 16) {
+        const ch = row[x];
+        const color = pal[ch];
+        if (!color) { x++; continue; }
+        let w = 1;
+        while (x + w < 16 && row[x + w] === ch) w++;
+        out.push({ x: x, y: y, w: w, c: color });
+        x += w;
+      }
+    }
+    return out;
+  }
+
+  const app = createApp({
+    setup() {
+      const g = reactive(Game.newGame());
+      const selectedId = ref(null);
+      const busy = ref(false);
+      const hintOn = ref(true);
+      const showRules = ref(false);
+      const epoch = ref(0);
+      const shakeId = ref(null);
+      const toastMsg = ref('');
+      const revealHoldId = ref(null);
+      const hitId = ref(null);
+      const blockId = ref(null);
+      let toastTimer = null;
+
+      const oppBoard = computed(function () { return g.boards[1 - g.current]; });
+      const myBoard = computed(function () { return g.boards[g.current]; });
+      const known = computed(function () { return Game.knownNumbers(g, g.current); });
+      const oppLeft = computed(function () { return Game.unrevealedCount(oppBoard.value); });
+      const mineFound = computed(function () { return Game.revealedCount(myBoard.value); });
+      const winCount = computed(function () {
+        return g.winner === null ? 0 : Game.boardCards(g.boards[1 - g.winner]).length;
+      });
+
+      const selectedCard = computed(function () {
+        if (selectedId.value === null) return null;
+        const found = Game.boardCards(oppBoard.value).filter(function (c) { return c.id === selectedId.value; });
+        return found.length ? found[0] : null;
+      });
+      const candidates = computed(function () {
+        return selectedCard.value ? Game.candidatesWithKnown(known.value, selectedCard.value) : [];
+      });
+
+      function countFor(card) {
+        return Game.candidatesWithKnown(known.value, card).length;
+      }
+
+      function toast(msg) {
+        toastMsg.value = msg;
+        if (toastTimer) clearTimeout(toastTimer);
+        toastTimer = setTimeout(function () { toastMsg.value = ''; }, 1500);
+      }
+      function clearToast() {
+        if (toastTimer) { clearTimeout(toastTimer); toastTimer = null; }
+        toastMsg.value = '';
+      }
+
+      function selectCard(card) {
+        if (busy.value || g.phase !== 'play' || card.revealed) return;
+        selectedId.value = card.id;
+      }
+
+      // 记录列内各牌位置，用于补牌后的位移动效
+      function captureSlots() {
+        const map = new Map();
+        document.querySelectorAll('.board.opp .slot').forEach(function (el) {
+          map.set(el.getAttribute('data-cid'), el.getBoundingClientRect().top);
+        });
+        return map;
+      }
+      function animateInsert(before) {
+        let newEl = null;
+        document.querySelectorAll('.board.opp .slot').forEach(function (el) {
+          const cid = el.getAttribute('data-cid');
+          const top = el.getBoundingClientRect().top;
+          const old = before.get(cid);
+          if (old === undefined) {
+            newEl = el;
+            // 像素方块从上方掉落入列
+            el.animate(
+              [
+                { transform: 'translateY(-42px)', opacity: 0.25 },
+                { transform: 'translateY(0)', opacity: 1 }
+              ],
+              { duration: 320, easing: 'steps(4,end)' }
+            );
+          } else {
+            const delta = old - top;
+            if (Math.abs(delta) > 0.5) {
+              el.animate(
+                [{ transform: 'translateY(' + delta + 'px)' }, { transform: 'translateY(0)' }],
+                { duration: 280, easing: 'steps(4,end)' }
+              );
+            }
+          }
+        });
+        if (newEl && newEl.scrollIntoView) newEl.scrollIntoView({ block: 'nearest' });
+      }
+
+      // 像素光波：从英雄位置沿直线排一串像素方块，依次亮起
+      function fireBeam(fromEl, toEl) {
+        if (!fromEl || !toEl) return;
+        const a = fromEl.getBoundingClientRect();
+        const b = toEl.getBoundingClientRect();
+        const x1 = a.left + a.width / 2, y1 = a.top + a.height / 2;
+        const x2 = b.left + b.width / 2, y2 = b.top + b.height / 2;
+        const layer = document.createElement('div');
+        layer.className = 'fx-layer';
+        const dist = Math.hypot(x2 - x1, y2 - y1);
+        const n = Math.max(5, Math.round(dist / 9));
+        for (let i = 0; i <= n; i++) {
+          const t = i / n;
+          const px = document.createElement('i');
+          px.className = 'fx-px';
+          px.style.left = (x1 + (x2 - x1) * t - 3) + 'px';
+          px.style.top = (y1 + (y2 - y1) * t - 3) + 'px';
+          px.style.animationDelay = (i * 8) + 'ms';
+          px.style.background = i === n ? '#FFFFFF' : (i % 3 === 0 ? '#FFE94D' : '#8FF6FF');
+          layer.appendChild(px);
+        }
+        document.body.appendChild(layer);
+        setTimeout(function () { layer.remove(); }, 1100);
+      }
+
+      async function submit(n) {
+        if (busy.value || !selectedCard.value || g.phase !== 'play') return;
+        busy.value = true;
+        const card = selectedCard.value;
+        selectedId.value = null;
+
+        const before = captureSlots();
+        revealHoldId.value = card.id;   // 先按住牌面，等光波命中再翻
+        const res = Game.guess(g, g.current, card, n);
+
+        if (res.correct) {
+          await nextTick();
+          const slotEl = document.querySelector('.board.opp .slot[data-cid="' + card.id + '"]');
+          const fromEl = document.querySelector('.hero-chip.mine .hero-art');
+          fireBeam(fromEl, slotEl);
+          await sleep(280);
+          hitId.value = card.id;
+          await sleep(200);
+          revealHoldId.value = null;
+          hitId.value = null;
+          if (!res.win) toast('命中！亮灯！');
+          await sleep(540);
+          if (res.win && g.phase === 'play') {
+            clearToast();
+            g.winner = g.current;
+            g.phase = 'over';
+          } else {
+            nextTurn();
+          }
+        } else {
+          revealHoldId.value = null;
+          shakeId.value = card.id;
+          blockId.value = card.id;
+          toast(res.drawn ? '猜错 · 敌方补一张' : '猜错 · 牌堆已空');
+          if (res.drawn) {
+            await nextTick();
+            animateInsert(before);
+          }
+          await sleep(1150);
+          shakeId.value = null;
+          blockId.value = null;
+          nextTurn();
+        }
+        busy.value = false;
+      }
+
+      function nextTurn() {
+        if (g.phase === 'over') return;
+        clearToast();
+        selectedId.value = null;
+        g.current = 1 - g.current;
+        g.phase = 'handover';
+        epoch.value++;
+      }
+
+      function confirmHandover() {
+        if (g.phase !== 'handover') return;
+        g.phase = 'play';
+      }
+
+      function restart() {
+        const fresh = Game.newGame();
+        g.current = fresh.current;
+        g.phase = fresh.phase;
+        g.winner = fresh.winner;
+        g.boards = fresh.boards;
+        g.deck = fresh.deck;
+        g.moves = fresh.moves;
+        selectedId.value = null;
+        shakeId.value = null;
+        hitId.value = null;
+        blockId.value = null;
+        revealHoldId.value = null;
+        busy.value = false;
+        showRules.value = false;
+        clearToast();
+        epoch.value++;
+      }
+
+      return {
+        Game: Game, g: g, NAMES: NAMES, HERO_NAMES: HERO_NAMES, COLORS: COLORS, INKS: INKS,
+        TITLES: TITLES, selectedId: selectedId, selectedCard: selectedCard, candidates: candidates,
+        busy: busy, hintOn: hintOn, showRules: showRules, epoch: epoch, shakeId: shakeId,
+        revealHoldId: revealHoldId, hitId: hitId, blockId: blockId,
+        toastMsg: toastMsg, oppLeft: oppLeft, mineFound: mineFound, winCount: winCount,
+        countFor: countFor, selectCard: selectCard, submit: submit,
+        nextTurn: nextTurn, confirmHandover: confirmHandover, restart: restart
+      };
+    }
+  });
+
+  app.component('hero-art', {
+    props: {
+      variant: { type: String, default: 'red' },
+      pose: { type: String, default: 'idle' },
+      px: { type: [Number, String], default: 24 }
+    },
+    computed: {
+      rects: function () {
+        const key = this.variant + '|' + this.pose;
+        if (!spriteCache[key]) {
+          const pal = Object.assign({}, HERO_BASE, HERO_PAL[this.variant] || HERO_PAL.red);
+          const src = this.pose === 'cheer' ? HERO_CHEER : (this.pose === 'face' ? HERO_FACE : HERO_IDLE);
+          spriteCache[key] = pixelRects(src, pal);
+        }
+        return spriteCache[key];
+      }
+    },
+    template: '<svg class="hero-art" :width="px" :height="px" viewBox="0 0 16 16" shape-rendering="crispEdges" aria-hidden="true"><rect v-for="(r,i) in rects" :key="i" :x="r.x" :y="r.y" :width="r.w" height="1" :fill="r.c"/></svg>'
+  });
+
+  app.mount('#app');
+})();
+</script>
+</body>
+</html>
